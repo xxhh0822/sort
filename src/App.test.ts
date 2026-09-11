@@ -6,10 +6,11 @@ describe('App', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('shows all four algorithms and switches the teaching content', async () => {
+  it('lists all four algorithms in a select and switches the teaching content', async () => {
     const wrapper = mount(App)
-    expect(wrapper.findAll('.algorithm-tabs button')).toHaveLength(4)
-    await wrapper.findAll('.algorithm-tabs button')[0]!.trigger('click')
+    const select = wrapper.get('select[aria-label="排序算法"]')
+    expect(select.findAll('option')).toHaveLength(4)
+    await select.setValue('bubble')
     expect(wrapper.text()).toContain('重复比较相邻元素')
   })
 

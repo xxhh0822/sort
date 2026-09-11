@@ -70,8 +70,8 @@ function rebuild(values: number[] = currentData.value) {
   currentIndex.value = 0
 }
 
-function chooseAlgorithm(id: AlgorithmId) {
-  selectedAlgorithm.value = id
+function chooseAlgorithm(event: Event) {
+  selectedAlgorithm.value = (event.target as HTMLSelectElement).value as AlgorithmId
   rebuild()
 }
 
@@ -149,22 +149,16 @@ onBeforeUnmount(pause)
     </header>
 
     <main>
-      <section class="hero">
-        <p class="eyebrow">SORTING VISUALIZER</p>
-        <h1>看得见的排序过程</h1>
-        <p>一步一步理解常见排序算法</p>
-      </section>
-
-      <nav class="algorithm-tabs" aria-label="选择排序算法">
-        <button v-for="item in algorithms" :key="item.id" type="button" :class="{ selected: selectedAlgorithm === item.id }" :aria-pressed="selectedAlgorithm === item.id" @click="chooseAlgorithm(item.id)">
-          {{ item.name }}
-        </button>
-      </nav>
-
       <div class="workspace">
         <aside class="side-column">
           <section class="card settings-card">
             <div class="section-title"><span>01</span><h2>数据设置</h2></div>
+            <label class="algorithm-select">
+              <span>排序算法</span>
+              <select :value="selectedAlgorithm" aria-label="排序算法" @change="chooseAlgorithm">
+                <option v-for="item in algorithms" :key="item.id" :value="item.id">{{ item.name }}</option>
+              </select>
+            </label>
             <label class="field-label">数据模式</label>
             <div class="mode-buttons">
               <button v-for="mode in ([['random', '随机'], ['nearly', '近乎有序'], ['reversed', '倒序']] as const)" :key="mode[0]" type="button" :class="{ selected: sourceMode === mode[0] }" @click="generatePreset(mode[0])">{{ mode[1] }}</button>
