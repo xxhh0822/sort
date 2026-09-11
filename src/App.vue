@@ -155,9 +155,11 @@ onBeforeUnmount(pause)
             <div class="section-title"><span>01</span><h2>数据设置</h2></div>
             <label class="algorithm-select">
               <span>排序算法</span>
-              <select :value="selectedAlgorithm" aria-label="排序算法" @change="chooseAlgorithm">
-                <option v-for="item in algorithms" :key="item.id" :value="item.id">{{ item.name }}</option>
-              </select>
+              <span class="select-shell">
+                <select :value="selectedAlgorithm" aria-label="排序算法" @change="chooseAlgorithm">
+                  <option v-for="item in algorithms" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+              </span>
             </label>
             <label class="field-label">数据模式</label>
             <div class="mode-buttons">
@@ -170,9 +172,11 @@ onBeforeUnmount(pause)
               </label>
               <label>
                 <span>动画速度 <b>{{ speed }}×</b></span>
-                <select v-model="speed" aria-label="动画速度">
-                  <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option>
-                </select>
+                <span class="select-shell">
+                  <select v-model="speed" aria-label="动画速度">
+                    <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option>
+                  </select>
+                </span>
               </label>
             </div>
             <button class="regenerate" type="button" @click="generatePreset()"><Shuffle :size="18" />重新生成</button>
