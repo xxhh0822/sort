@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Pause, Play, Shuffle } from 'reicon-vue'
+import DropdownSelect from './DropdownSelect.vue'
 import {
   algorithms,
   createSortRun,
@@ -27,6 +28,8 @@ const isPlaying = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 const speedDelay: Record<Speed, number> = { '0.25': 800, '0.5': 480, '1': 260, '2': 130, '4': 60 }
+const algorithmOptions = algorithms.map(({ id, name }) => ({ value: id, label: name }))
+const speedOptions = ['0.25', '0.5', '1', '2', '4'].map((value) => ({ value, label: `${value}×` }))
 const algorithm = computed(() => getAlgorithm(selectedAlgorithm.value))
 const step = computed(() => run.value.steps[currentIndex.value]!)
 const totalSteps = computed(() => Math.max(0, run.value.steps.length - 1))
@@ -70,9 +73,13 @@ function rebuild(values: number[] = currentData.value) {
   currentIndex.value = 0
 }
 
-function chooseAlgorithm(event: Event) {
-  selectedAlgorithm.value = (event.target as HTMLSelectElement).value as AlgorithmId
+function chooseAlgorithm(value: string) {
+  selectedAlgorithm.value = value as AlgorithmId
   rebuild()
+}
+
+function chooseSpeed(value: string) {
+  speed.value = value as Speed
 }
 
 function generatePreset(mode: DataMode = dataMode.value) {
@@ -153,14 +160,10 @@ onBeforeUnmount(pause)
         <aside class="side-column">
           <section class="card settings-card">
             <div class="section-title"><span>01</span><h2>数据设置</h2></div>
-            <label class="algorithm-select">
+            <div class="algorithm-select">
               <span>排序算法</span>
-              <span class="select-shell">
-                <select :value="selectedAlgorithm" aria-label="排序算法" @change="chooseAlgorithm">
-                  <option v-for="item in algorithms" :key="item.id" :value="item.id">{{ item.name }}</option>
-                </select>
-              </span>
-            </label>
+              <DropdownSelect :model-value="selectedAlgorithm" :options="algorithmOptions" label="排序算法" @update:model-value="chooseAlgorithm" />
+            </div>
             <label class="field-label">数据模式</label>
             <div class="mode-buttons">
               <button v-for="mode in ([['random', '随机'], ['nearly', '近乎有序'], ['reversed', '倒序']] as const)" :key="mode[0]" type="button" :class="{ selected: sourceMode === mode[0] }" @click="generatePreset(mode[0])">{{ mode[1] }}</button>
@@ -170,14 +173,10 @@ onBeforeUnmount(pause)
                 <span>数据数量 <b>{{ count }}</b></span>
                 <input v-model.number="count" type="range" min="8" max="60" @input="updateCount" />
               </label>
-              <label>
-                <span>动画速度 <b>{{ speed }}×</b></span>
-                <span class="select-shell">
-                  <select v-model="speed" aria-label="动画速度">
-                    <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option>
-                  </select>
-                </span>
-              </label>
+              <div class="control-field">
+                <span>动画速度</span>
+                <DropdownSelect :model-value="speed" :options="speedOptions" label="动画速度" @update:model-value="chooseSpeed" />
+              </div>
             </div>
             <button class="regenerate" type="button" @click="generatePreset()"><Shuffle :size="18" />重新生成</button>
             <details class="custom-data">
