@@ -16,9 +16,9 @@ describe('App', () => {
     expect(wrapper.text()).toContain('重复比较相邻元素')
   })
 
-  it('keeps the visualizer before the collapsed teaching details and removes sequence badges', () => {
+  it('keeps the visualizer before the expanded teaching details and removes sequence badges', () => {
     const wrapper = mount(App)
-    expect(wrapper.get('.teaching-card').attributes('open')).toBeUndefined()
+    expect(wrapper.get('.teaching-card').attributes('open')).toBe('')
     expect(wrapper.get('.teaching-card').element.parentElement).toBe(wrapper.get('.workspace').element)
     expect(wrapper.get('.visualizer-card').element.compareDocumentPosition(wrapper.get('.teaching-card').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(wrapper.findAll('.section-title > span')).toHaveLength(0)

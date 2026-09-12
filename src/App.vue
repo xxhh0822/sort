@@ -266,7 +266,7 @@ onBeforeUnmount(pause)
           </div>
         </section>
 
-        <details class="card teaching-card">
+        <details class="card teaching-card" open>
           <summary><span>算法讲解</span><small>{{ algorithm.name }}</small><ChevronDown :size="18" aria-hidden="true" /></summary>
           <div class="teaching-content">
             <p class="algorithm-summary">{{ algorithm.summary }}</p>
