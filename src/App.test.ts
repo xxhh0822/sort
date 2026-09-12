@@ -19,6 +19,7 @@ describe('App', () => {
   it('keeps the visualizer before the collapsed teaching details and removes sequence badges', () => {
     const wrapper = mount(App)
     expect(wrapper.get('.teaching-card').attributes('open')).toBeUndefined()
+    expect(wrapper.get('.teaching-card').element.parentElement).toBe(wrapper.get('.workspace').element)
     expect(wrapper.get('.visualizer-card').element.compareDocumentPosition(wrapper.get('.teaching-card').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(wrapper.findAll('.section-title > span')).toHaveLength(0)
     expect(wrapper.get('.current-step-banner').text()).toContain('准备开始排序')
