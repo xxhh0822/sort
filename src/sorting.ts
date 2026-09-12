@@ -1,4 +1,4 @@
-export type AlgorithmId = 'bubble' | 'selection' | 'insertion' | 'quick' | 'merge' | 'heap' | 'counting'
+export type AlgorithmId = 'bubble' | 'selection' | 'insertion' | 'quick' | 'merge' | 'heap' | 'counting' | 'shell' | 'radix' | 'bucket'
 export type DataMode = 'random' | 'nearly' | 'reversed'
 export type StepKind = 'initial' | 'compare' | 'swap' | 'write' | 'mark'
 
@@ -37,6 +37,9 @@ export const algorithms: AlgorithmDefinition[] = [
   { id: 'merge', name: '归并排序', summary: '递归拆分数组，再把相邻的有序区间逐层合并。', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)', stable: true, inPlace: false, pseudocode: ['把当前区间分成左右两半', '递归排序左右两个区间', '比较两侧尚未合并的元素', '把较小元素写回原数组', '复制剩余元素并完成合并'] },
   { id: 'heap', name: '堆排序', summary: '先构建最大堆，再逐轮把堆顶最大值放到数组末尾。', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)', stable: false, inPlace: true, pseudocode: ['从最后一个非叶节点构建最大堆', '比较父节点与左右子节点', '较大子节点上移并继续调整', '把堆顶最大值交换到末尾', '缩小堆范围并重复调整'] },
   { id: 'counting', name: '计数排序', summary: '统计每个整数出现的次数，再按数值顺序写回数组。', best: 'O(n + k)', average: 'O(n + k)', worst: 'O(n + k)', stable: true, inPlace: false, pseudocode: ['统计每个整数出现的次数', '确定数值范围与计数位置', '累加计数得到输出位置', '按原顺序生成有序结果', '把结果写回原数组'] },
+  { id: 'shell', name: '希尔排序', summary: '按逐渐缩小的间隔分组插入，最后以间隔 1 完成排序。', best: 'O(n log n)', average: '取决于间隔序列', worst: 'O(n²)', stable: false, inPlace: true, pseudocode: ['选取初始间隔并划分子序列', '取出当前间隔位置的元素', '与同组前一个元素比较', '较大元素按间隔向后移动', '缩小间隔直到完成排序'] },
+  { id: 'radix', name: '基数排序', summary: '从低位到高位稳定分配和收集整数，逐位完成排序。', best: 'O(d(n + k))', average: 'O(d(n + k))', worst: 'O(d(n + k))', stable: true, inPlace: false, pseudocode: ['从最低有效位开始', '按当前位把元素分配到桶中', '依次收集 0–9 号桶', '把本轮结果写回数组', '处理更高位直到完成'] },
+  { id: 'bucket', name: '桶排序', summary: '按数值范围分桶，分别排序后再依次合并各桶。', best: 'O(n + k)', average: 'O(n + k)', worst: 'O(n²)', stable: true, inPlace: false, pseudocode: ['根据数据范围创建若干桶', '把每个元素分配到对应桶', '分别对每个桶进行稳定排序', '按桶的顺序依次收集元素', '把收集结果写回原数组'] },
 ]
 
 export function getAlgorithm(id: AlgorithmId): AlgorithmDefinition {
@@ -238,9 +241,89 @@ function countingSort(input: number[]): SortStep[] {
   return state.steps
 }
 
+function shellSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  for (let gap = Math.floor(state.values.length / 2); gap > 0; gap = Math.floor(gap / 2)) {
+    state.note(1, `当前间隔为 ${gap}，按间隔划分子序列`)
+    for (let index = gap; index < state.values.length; index += 1) {
+      const value = state.values[index]!
+      let cursor = index
+      state.note(2, `取出位置 ${index + 1} 的元素 ${value}`, null, [index])
+      while (cursor >= gap) {
+        state.compare([cursor - gap, cursor], 3, `比较同组元素 ${state.values[cursor - gap]} 与 ${value}`)
+        if (state.values[cursor - gap]! <= value) break
+        state.write(cursor, state.values[cursor - gap]!, 4, `较大元素按间隔 ${gap} 向后移动`)
+        cursor -= gap
+      }
+      state.write(cursor, value, 4, `把 ${value} 写入当前分组的合适位置`)
+    }
+  }
+  state.mark(Array.from({ length: state.values.length }, (_, index) => index), 5, '间隔缩小为 1，全部元素排序完成')
+  return state.steps
+}
+
+function radixSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  const minimum = Math.min(...input)
+  const offset = minimum < 0 ? -minimum : 0
+  const maximumKey = Math.max(...input.map((value) => value + offset))
+  let exponent = 1
+  do {
+    const placeName = exponent === 1 ? '个位' : exponent === 10 ? '十位' : exponent === 100 ? '百位' : `${exponent} 位`
+    const buckets = Array.from({ length: 10 }, () => [] as number[])
+    state.note(1, `处理${placeName}${offset ? `，统一偏移 ${offset} 以兼容负数` : ''}`)
+    state.values.forEach((value, index) => {
+      const digit = Math.floor((value + offset) / exponent) % 10
+      buckets[digit]!.push(value)
+      state.note(2, `按${placeName}数字 ${digit}，把 ${value} 放入 ${digit} 号桶`, null, [index])
+    })
+    const output = buckets.flat()
+    state.note(3, `按 0–9 的顺序收集${placeName}分桶结果`)
+    output.forEach((value, index) => state.write(index, value, 4, `把 ${value} 写回位置 ${index + 1}`))
+    state.note(5, `${placeName}处理完成`, null, Array.from({ length: state.values.length }, (_, index) => index))
+    exponent *= 10
+  } while (exponent <= maximumKey)
+  state.mark(Array.from({ length: state.values.length }, (_, index) => index), 5, '所有有效位处理完成')
+  return state.steps
+}
+
+function bucketSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  const minimum = Math.min(...input)
+  const maximum = Math.max(...input)
+  const bucketCount = Math.max(1, Math.ceil(Math.sqrt(input.length)))
+  const bucketWidth = Math.max(1, Math.ceil((maximum - minimum + 1) / bucketCount))
+  const buckets = Array.from({ length: bucketCount }, () => [] as number[])
+  state.note(1, `创建 ${bucketCount} 个桶，每个桶覆盖约 ${bucketWidth} 个整数`)
+  input.forEach((value, index) => {
+    const bucketIndex = Math.min(bucketCount - 1, Math.floor((value - minimum) / bucketWidth))
+    buckets[bucketIndex]!.push(value)
+    state.note(2, `把 ${value} 分配到 ${bucketIndex + 1} 号桶`, null, [index])
+  })
+  buckets.forEach((bucket, bucketIndex) => {
+    for (let index = 1; index < bucket.length; index += 1) {
+      const value = bucket[index]!
+      let cursor = index - 1
+      while (cursor >= 0) {
+        state.compare([], 3, `在 ${bucketIndex + 1} 号桶中比较 ${bucket[cursor]} 与 ${value}`)
+        if (bucket[cursor]! <= value) break
+        bucket[cursor + 1] = bucket[cursor]!
+        cursor -= 1
+      }
+      bucket[cursor + 1] = value
+    }
+    state.note(3, `${bucketIndex + 1} 号桶排序完成：${bucket.join('、') || '空桶'}`)
+  })
+  const output = buckets.flat()
+  state.note(4, '按桶的范围从小到大依次收集元素')
+  output.forEach((value, index) => state.write(index, value, 5, `把 ${value} 写回位置 ${index + 1}`))
+  state.mark(Array.from({ length: state.values.length }, (_, index) => index), 5, '全部桶合并完成')
+  return state.steps
+}
+
 export function createSortRun(id: AlgorithmId, input: number[]): SortRun {
   const initial = [...input]
-  const createSteps = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort, merge: mergeSort, heap: heapSort, counting: countingSort }[id]
+  const createSteps = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort, merge: mergeSort, heap: heapSort, counting: countingSort, shell: shellSort, radix: radixSort, bucket: bucketSort }[id]
   return { initial, steps: createSteps(initial) }
 }
 

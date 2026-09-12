@@ -35,6 +35,8 @@ describe('DropdownSelect', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['second']])
 
     await trigger.trigger('click')
+    await trigger.trigger('keydown', { key: 'End' })
+    expect(trigger.attributes('aria-activedescendant')).toContain('-2')
     await trigger.trigger('keydown', { key: 'Escape' })
     expect(trigger.attributes('aria-expanded')).toBe('false')
   })

@@ -30,11 +30,24 @@ describe('sorting algorithms', () => {
     ]))
   })
 
+  it('includes shell, radix and bucket sort with their teaching characteristics', () => {
+    expect(algorithms).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'shell', stable: false, inPlace: true, worst: 'O(n²)' }),
+      expect.objectContaining({ id: 'radix', stable: true, inPlace: false, average: 'O(d(n + k))' }),
+      expect.objectContaining({ id: 'bucket', stable: true, inPlace: false, worst: 'O(n²)' }),
+    ]))
+  })
+
   it('counting sort supports duplicate and negative integers', () => {
     const run = createSortRun('counting', [3, -2, 3, 0, -2])
     expect(run.steps.at(-1)?.values).toEqual([-2, -2, 0, 3, 3])
     expect(run.steps.at(-1)?.comparisons).toBe(0)
     expect(run.steps.at(-1)?.moves).toBe(5)
+  })
+
+  it.each(['radix', 'bucket'] as const)('%s supports duplicate and negative integers', (id) => {
+    const run = createSortRun(id, [12, -3, 0, -3, 21, 5])
+    expect(run.steps.at(-1)?.values).toEqual([-3, -3, 0, 5, 12, 21])
   })
 })
 

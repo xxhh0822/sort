@@ -6,11 +6,11 @@ describe('App', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('lists all seven algorithms in a dropdown and switches the teaching content', async () => {
+  it('lists all ten algorithms in a dropdown and switches the teaching content', async () => {
     const wrapper = mount(App)
     await wrapper.get('button[aria-label="排序算法"]').trigger('click')
     const options = wrapper.findAll('.algorithm-select .dropdown-option')
-    expect(options).toHaveLength(7)
+    expect(options).toHaveLength(10)
     await options[0]!.trigger('click')
     expect(wrapper.text()).toContain('重复比较相邻元素')
   })

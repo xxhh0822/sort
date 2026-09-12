@@ -32,6 +32,7 @@ watch(() => props.modelValue, () => {
 function toggle() {
   open.value = !open.value
   activeIndex.value = selectedIndex.value
+  if (open.value) revealActive()
 }
 
 function close(restoreFocus = false) {
@@ -48,6 +49,11 @@ function moveActive(offset: number) {
   if (!open.value) open.value = true
   const length = props.options.length
   activeIndex.value = (activeIndex.value + offset + length) % length
+  revealActive()
+}
+
+function revealActive() {
+  void nextTick(() => document.getElementById(`${listboxId}-${activeIndex.value}`)?.scrollIntoView?.({ block: 'nearest' }))
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -60,6 +66,7 @@ function handleKeydown(event: KeyboardEvent) {
     event.preventDefault()
     open.value = true
     activeIndex.value = event.key === 'Home' ? 0 : props.options.length - 1
+    revealActive()
     return
   }
   if ((event.key === 'Enter' || event.key === ' ') && open.value) {
@@ -152,12 +159,18 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleOutsideC
   left: 0;
   display: grid;
   gap: 3px;
+  max-height: min(370px, 60vh);
   padding: 6px;
+  overflow-y: auto;
+  scrollbar-color: #c8ceef transparent;
+  scrollbar-width: thin;
   border: 1px solid #e0e4ef;
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 14px 36px rgba(34, 48, 87, 0.16);
 }
+.dropdown-menu::-webkit-scrollbar { width: 6px; }
+.dropdown-menu::-webkit-scrollbar-thumb { border-radius: 999px; background: #c8ceef; }
 .dropdown-option {
   display: flex;
   width: 100%;
