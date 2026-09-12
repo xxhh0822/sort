@@ -1,4 +1,4 @@
-export type AlgorithmId = 'bubble' | 'selection' | 'insertion' | 'quick'
+export type AlgorithmId = 'bubble' | 'selection' | 'insertion' | 'quick' | 'merge' | 'heap' | 'counting'
 export type DataMode = 'random' | 'nearly' | 'reversed'
 export type StepKind = 'initial' | 'compare' | 'swap' | 'write' | 'mark'
 
@@ -34,6 +34,9 @@ export const algorithms: AlgorithmDefinition[] = [
   { id: 'selection', name: '选择排序', summary: '每轮找到未排序区间的最小值，放到区间起点。', best: 'O(n²)', average: 'O(n²)', worst: 'O(n²)', stable: false, inPlace: true, pseudocode: ['从当前下标开始扫描', '记录未排序区间的最小值', '继续比较并更新最小值', '把最小值交换到当前位置', '当前位置归位'] },
   { id: 'insertion', name: '插入排序', summary: '把当前元素插入左侧已经有序的区间。', best: 'O(n)', average: 'O(n²)', worst: 'O(n²)', stable: true, inPlace: true, pseudocode: ['取出当前待插入元素', '与左侧元素逐个比较', '较大的元素向右移动', '把元素写入合适位置', '全部元素完成插入'] },
   { id: 'quick', name: '快速排序', summary: '围绕基准值划分区间，再递归处理左右两侧。', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n²)', stable: false, inPlace: true, pseudocode: ['选择区间末尾元素作为基准', '比较当前元素与基准值', '较小元素移到基准左侧', '把基准放到最终位置', '递归处理左右区间'] },
+  { id: 'merge', name: '归并排序', summary: '递归拆分数组，再把相邻的有序区间逐层合并。', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)', stable: true, inPlace: false, pseudocode: ['把当前区间分成左右两半', '递归排序左右两个区间', '比较两侧尚未合并的元素', '把较小元素写回原数组', '复制剩余元素并完成合并'] },
+  { id: 'heap', name: '堆排序', summary: '先构建最大堆，再逐轮把堆顶最大值放到数组末尾。', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)', stable: false, inPlace: true, pseudocode: ['从最后一个非叶节点构建最大堆', '比较父节点与左右子节点', '较大子节点上移并继续调整', '把堆顶最大值交换到末尾', '缩小堆范围并重复调整'] },
+  { id: 'counting', name: '计数排序', summary: '统计每个整数出现的次数，再按数值顺序写回数组。', best: 'O(n + k)', average: 'O(n + k)', worst: 'O(n + k)', stable: true, inPlace: false, pseudocode: ['统计每个整数出现的次数', '确定数值范围与计数位置', '累加计数得到输出位置', '按原顺序生成有序结果', '把结果写回原数组'] },
 ]
 
 export function getAlgorithm(id: AlgorithmId): AlgorithmDefinition {
@@ -135,9 +138,109 @@ function quickSort(input: number[]): SortStep[] {
   return state.steps
 }
 
+function mergeSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  const merge = (low: number, middle: number, high: number) => {
+    const left = state.values.slice(low, middle + 1)
+    const right = state.values.slice(middle + 1, high + 1)
+    let leftIndex = 0
+    let rightIndex = 0
+    let target = low
+    state.note(1, `合并位置 ${low + 1}–${high + 1} 的两个有序区间`, null, Array.from({ length: high - low + 1 }, (_, index) => low + index))
+    while (leftIndex < left.length && rightIndex < right.length) {
+      state.compare([low + leftIndex, middle + 1 + rightIndex], 3, `比较 ${left[leftIndex]} 与 ${right[rightIndex]}`)
+      if (left[leftIndex]! <= right[rightIndex]!) {
+        state.write(target, left[leftIndex]!, 4, `写入左侧元素 ${left[leftIndex]}`)
+        leftIndex += 1
+      } else {
+        state.write(target, right[rightIndex]!, 4, `写入右侧元素 ${right[rightIndex]}`)
+        rightIndex += 1
+      }
+      target += 1
+    }
+    while (leftIndex < left.length) {
+      state.write(target, left[leftIndex]!, 5, `复制左侧剩余元素 ${left[leftIndex]}`)
+      leftIndex += 1
+      target += 1
+    }
+    while (rightIndex < right.length) {
+      state.write(target, right[rightIndex]!, 5, `复制右侧剩余元素 ${right[rightIndex]}`)
+      rightIndex += 1
+      target += 1
+    }
+  }
+  const sortRange = (low: number, high: number) => {
+    if (low >= high) return
+    const middle = Math.floor((low + high) / 2)
+    state.note(1, `拆分位置 ${low + 1}–${high + 1}`, null, [low, high])
+    sortRange(low, middle)
+    sortRange(middle + 1, high)
+    merge(low, middle, high)
+  }
+  sortRange(0, state.values.length - 1)
+  state.mark(Array.from({ length: state.values.length }, (_, index) => index), 5, '全部区间合并完成')
+  return state.steps
+}
+
+function heapSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  const siftDown = (size: number, start: number) => {
+    let root = start
+    while (true) {
+      const left = root * 2 + 1
+      if (left >= size) return
+      const right = left + 1
+      let largest = root
+      state.compare([largest, left], 2, `比较父节点 ${state.values[largest]} 与左子节点 ${state.values[left]}`)
+      if (state.values[left]! > state.values[largest]!) largest = left
+      if (right < size) {
+        state.compare([largest, right], 2, `比较当前较大值 ${state.values[largest]} 与右子节点 ${state.values[right]}`)
+        if (state.values[right]! > state.values[largest]!) largest = right
+      }
+      if (largest === root) return
+      state.swap(root, largest, 3, '较大子节点上移，继续调整堆')
+      root = largest
+    }
+  }
+  state.note(1, '从最后一个非叶节点开始构建最大堆')
+  for (let index = Math.floor(state.values.length / 2) - 1; index >= 0; index -= 1) siftDown(state.values.length, index)
+  for (let end = state.values.length - 1; end > 0; end -= 1) {
+    state.swap(0, end, 4, `把当前最大值放到位置 ${end + 1}`)
+    state.mark([end], 5, `位置 ${end + 1} 已归位`)
+    siftDown(end, 0)
+  }
+  state.mark([0], 5, '全部元素排序完成')
+  return state.steps
+}
+
+function countingSort(input: number[]): SortStep[] {
+  const state = recorder(input)
+  const minimum = Math.min(...input)
+  const maximum = Math.max(...input)
+  const counts = Array.from({ length: maximum - minimum + 1 }, () => 0)
+  input.forEach((value, index) => {
+    counts[value - minimum]! += 1
+    state.note(1, `统计 ${value}，当前已出现 ${counts[value - minimum]} 次`, null, [index])
+  })
+  state.note(2, `计数范围为 ${minimum}–${maximum}，共 ${counts.length} 个位置`)
+  for (let index = 1; index < counts.length; index += 1) counts[index]! += counts[index - 1]!
+  state.note(3, '累加计数，确定每个元素在结果中的结束位置')
+  const output = Array.from({ length: input.length }, () => 0)
+  for (let index = input.length - 1; index >= 0; index -= 1) {
+    const value = input[index]!
+    const countIndex = value - minimum
+    counts[countIndex]! -= 1
+    output[counts[countIndex]!] = value
+  }
+  state.note(4, '保持相同元素的原有顺序，生成有序结果')
+  output.forEach((value, index) => state.write(index, value, 5, `把 ${value} 写回位置 ${index + 1}`))
+  state.mark(Array.from({ length: state.values.length }, (_, index) => index), 5, '全部元素写回完成')
+  return state.steps
+}
+
 export function createSortRun(id: AlgorithmId, input: number[]): SortRun {
   const initial = [...input]
-  const createSteps = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort }[id]
+  const createSteps = { bubble: bubbleSort, selection: selectionSort, insertion: insertionSort, quick: quickSort, merge: mergeSort, heap: heapSort, counting: countingSort }[id]
   return { initial, steps: createSteps(initial) }
 }
 

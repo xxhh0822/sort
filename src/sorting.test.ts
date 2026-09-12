@@ -21,6 +21,21 @@ describe('sorting algorithms', () => {
       expect(step.moves).toBeGreaterThanOrEqual(steps[index]!.moves)
     })
   })
+
+  it('includes merge, heap and counting sort with their teaching characteristics', () => {
+    expect(algorithms).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'merge', stable: true, inPlace: false, average: 'O(n log n)' }),
+      expect.objectContaining({ id: 'heap', stable: false, inPlace: true, average: 'O(n log n)' }),
+      expect.objectContaining({ id: 'counting', stable: true, inPlace: false, average: 'O(n + k)' }),
+    ]))
+  })
+
+  it('counting sort supports duplicate and negative integers', () => {
+    const run = createSortRun('counting', [3, -2, 3, 0, -2])
+    expect(run.steps.at(-1)?.values).toEqual([-2, -2, 0, 3, 3])
+    expect(run.steps.at(-1)?.comparisons).toBe(0)
+    expect(run.steps.at(-1)?.moves).toBe(5)
+  })
 })
 
 describe('data helpers', () => {
