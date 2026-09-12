@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { ChevronLeft, ChevronRight, Pause, Play, Shuffle } from 'reicon-vue'
+import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play, Shuffle } from 'reicon-vue'
 import DropdownSelect from './DropdownSelect.vue'
 import {
   algorithms,
@@ -9,6 +9,7 @@ import {
   getAlgorithm,
   parseCustomData,
   type AlgorithmId,
+  type AuxiliaryGroup,
   type DataMode,
 } from './sorting'
 
@@ -28,7 +29,15 @@ const isPlaying = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 const speedDelay: Record<Speed, number> = { '0.25': 800, '0.5': 480, '1': 260, '2': 130, '4': 60 }
-const algorithmOptions = algorithms.map(({ id, name }) => ({ value: id, label: name }))
+const algorithmGroups: Record<AlgorithmId, string> = {
+  bubble: '基础排序', selection: '基础排序', insertion: '基础排序',
+  shell: '高效比较排序', quick: '高效比较排序', merge: '高效比较排序', heap: '高效比较排序',
+  counting: '非比较排序', radix: '非比较排序', bucket: '非比较排序',
+}
+const algorithmGroupOrder = ['基础排序', '高效比较排序', '非比较排序']
+const algorithmOptions = algorithms
+  .map(({ id, name }) => ({ value: id, label: name, group: algorithmGroups[id] }))
+  .sort((left, right) => algorithmGroupOrder.indexOf(left.group) - algorithmGroupOrder.indexOf(right.group))
 const speedOptions = ['0.25', '0.5', '1', '2', '4'].map((value) => ({ value, label: `${value}×` }))
 const algorithm = computed(() => getAlgorithm(selectedAlgorithm.value))
 const step = computed(() => run.value.steps[currentIndex.value]!)
@@ -37,6 +46,31 @@ const finished = computed(() => currentIndex.value >= totalSteps.value)
 const minValue = computed(() => Math.min(...step.value.values))
 const maxValue = computed(() => Math.max(...step.value.values))
 const showValues = computed(() => step.value.values.length <= 24)
+const usesDistributionMetric = computed(() => ['counting', 'radix', 'bucket'].includes(selectedAlgorithm.value))
+const legendItems = computed(() => {
+  if (selectedAlgorithm.value === 'quick') return [{ label: '比较', class: 'compare-dot' }, { label: '基准', class: 'pivot-dot' }, { label: '已排序', class: 'sorted-dot' }]
+  if (selectedAlgorithm.value === 'merge') return [{ label: '比较', class: 'compare-dot' }, { label: '写入', class: 'writing-dot' }, { label: '已合并', class: 'sorted-dot' }]
+  if (selectedAlgorithm.value === 'heap') return [{ label: '比较节点', class: 'compare-dot' }, { label: '交换', class: 'active-dot' }, { label: '已归位', class: 'sorted-dot' }]
+  if (usesDistributionMetric.value) return [{ label: '分配', class: 'active-dot' }, { label: '写回', class: 'writing-dot' }, { label: '已完成', class: 'sorted-dot' }]
+  return [{ label: '比较', class: 'compare-dot' }, { label: '移动', class: 'active-dot' }, { label: '已排序', class: 'sorted-dot' }]
+})
+const auxiliary = computed(() => {
+  if (step.value.auxiliary) return step.value.auxiliary
+  if (selectedAlgorithm.value !== 'heap') return undefined
+  const heapSize = step.value.sorted.length ? Math.min(...step.value.sorted) : step.value.values.length
+  if (heapSize <= 0) return undefined
+  const groups: AuxiliaryGroup[] = []
+  let offset = 0
+  let width = 1
+  let level = 1
+  while (offset < heapSize) {
+    groups.push({ label: `第 ${level} 层`, values: step.value.values.slice(offset, Math.min(heapSize, offset + width)) })
+    offset += width
+    width *= 2
+    level += 1
+  }
+  return { title: '堆结构（未排序区间）', groups }
+})
 
 function pause() {
   clearTimeout(timer)
@@ -131,6 +165,7 @@ function barClass(index: number) {
     sorted: step.value.sorted.includes(index),
     comparing: step.value.comparing.includes(index),
     active: step.value.active.includes(index),
+    writing: step.value.kind === 'write' && step.value.active.includes(index),
     pivot: step.value.pivot === index,
   }
 }
@@ -157,51 +192,42 @@ onBeforeUnmount(pause)
 
     <main>
       <div class="workspace">
-        <aside class="side-column">
-          <section class="card settings-card">
-            <div class="section-title"><span>01</span><h2>数据设置</h2></div>
-            <div class="algorithm-select">
-              <span>排序算法</span>
-              <DropdownSelect :model-value="selectedAlgorithm" :options="algorithmOptions" label="排序算法" @update:model-value="chooseAlgorithm" />
+        <aside class="card settings-card">
+          <div class="section-title"><h2>数据设置</h2></div>
+          <div class="algorithm-select">
+            <span>排序算法</span>
+            <DropdownSelect :model-value="selectedAlgorithm" :options="algorithmOptions" label="排序算法" @update:model-value="chooseAlgorithm" />
+          </div>
+          <label class="field-label">数据模式</label>
+          <div class="mode-buttons">
+            <button v-for="mode in ([['random', '随机'], ['nearly', '近乎有序'], ['reversed', '倒序']] as const)" :key="mode[0]" type="button" :class="{ selected: sourceMode === mode[0] }" @click="generatePreset(mode[0])">{{ mode[1] }}</button>
+          </div>
+          <div class="control-grid">
+            <label>
+              <span>数据数量 <b>{{ count }}</b></span>
+              <input v-model.number="count" type="range" min="8" max="60" @input="updateCount" />
+            </label>
+            <div class="control-field">
+              <span>动画速度</span>
+              <DropdownSelect :model-value="speed" :options="speedOptions" label="动画速度" @update:model-value="chooseSpeed" />
             </div>
-            <label class="field-label">数据模式</label>
-            <div class="mode-buttons">
-              <button v-for="mode in ([['random', '随机'], ['nearly', '近乎有序'], ['reversed', '倒序']] as const)" :key="mode[0]" type="button" :class="{ selected: sourceMode === mode[0] }" @click="generatePreset(mode[0])">{{ mode[1] }}</button>
-            </div>
-            <div class="control-grid">
-              <label>
-                <span>数据数量 <b>{{ count }}</b></span>
-                <input v-model.number="count" type="range" min="8" max="60" @input="updateCount" />
-              </label>
-              <div class="control-field">
-                <span>动画速度</span>
-                <DropdownSelect :model-value="speed" :options="speedOptions" label="动画速度" @update:model-value="chooseSpeed" />
-              </div>
-            </div>
-            <button class="regenerate" type="button" @click="generatePreset()"><Shuffle :size="18" />重新生成</button>
-            <details class="custom-data">
-              <summary>自定义数组</summary>
-              <textarea v-model="customInput" rows="2" aria-label="自定义数组" placeholder="例如：8, 3, 12, 5, 1" />
-              <div class="custom-actions"><span>支持逗号、空格或换行</span><button type="button" @click="applyCustomData">应用数组</button></div>
-              <p v-if="customError" class="input-error" role="alert">{{ customError }}</p>
-            </details>
-          </section>
-
-          <section class="card teaching-card">
-            <div class="section-title"><span>02</span><h2>当前步骤</h2></div>
-            <p class="step-message">{{ step.message }}</p>
-            <ol class="pseudocode">
-              <li v-for="(line, index) in algorithm.pseudocode" :key="line" :class="{ active: step.line === index + 1 }"><span>{{ index + 1 }}</span>{{ line }}</li>
-            </ol>
-            <p class="algorithm-summary">{{ algorithm.summary }}</p>
-          </section>
+          </div>
+          <button class="regenerate" type="button" @click="generatePreset()"><Shuffle :size="18" />重新生成</button>
+          <details class="custom-data">
+            <summary>自定义数组</summary>
+            <textarea v-model="customInput" rows="2" aria-label="自定义数组" placeholder="例如：8, 3, 12, 5, 1" />
+            <div class="custom-actions"><span>支持逗号、空格或换行</span><button type="button" @click="applyCustomData">应用数组</button></div>
+            <p v-if="customError" class="input-error" role="alert">{{ customError }}</p>
+          </details>
         </aside>
 
         <section class="card visualizer-card">
           <div class="visualizer-head">
-            <div class="section-title"><span>03</span><h2>排序演示</h2></div>
-            <div class="legend"><span class="compare-dot">比较</span><span class="pivot-dot">基准</span><span class="sorted-dot">已排序</span></div>
+            <div class="section-title"><h2>排序演示</h2></div>
+            <div class="legend"><span v-for="item in legendItems" :key="item.label" :class="item.class">{{ item.label }}</span></div>
           </div>
+
+          <div class="current-step-banner"><span>当前步骤</span><strong>{{ step.message }}</strong></div>
 
           <div class="bars" role="list" aria-label="排序数据柱状图">
             <div v-for="(value, index) in step.values" :key="index" class="bar-slot" role="listitem" :aria-label="`位置 ${index + 1}，值 ${value}`">
@@ -210,6 +236,16 @@ onBeforeUnmount(pause)
               <small v-if="showValues">{{ index }}</small>
             </div>
           </div>
+
+          <section v-if="auxiliary" class="auxiliary-panel" aria-label="算法辅助结构">
+            <strong>{{ auxiliary.title }}</strong>
+            <div class="auxiliary-groups">
+              <div v-for="group in auxiliary.groups" :key="group.label" class="auxiliary-group">
+                <span>{{ group.label }}</span>
+                <div><i v-for="(value, index) in group.values" :key="`${value}-${index}`">{{ value }}</i><small v-if="group.values.length === 0">空</small></div>
+              </div>
+            </div>
+          </section>
 
           <div class="playback">
             <button type="button" @click="reset">重置</button>
@@ -220,8 +256,8 @@ onBeforeUnmount(pause)
 
           <div class="stats">
             <div><span>步骤</span><strong>{{ currentIndex }} / {{ totalSteps }}</strong></div>
-            <div><span>比较</span><strong>{{ step.comparisons }} 次</strong></div>
-            <div><span>移动</span><strong>{{ step.moves }} 次</strong></div>
+            <div><span>{{ usesDistributionMetric ? '分配' : '比较' }}</span><strong>{{ usesDistributionMetric ? step.distributions : step.comparisons }} 次</strong></div>
+            <div><span>{{ usesDistributionMetric ? '写回' : '移动' }}</span><strong>{{ step.moves }} 次</strong></div>
             <div><span>平均</span><strong>{{ algorithm.average }}</strong></div>
           </div>
 
@@ -230,6 +266,16 @@ onBeforeUnmount(pause)
           </div>
         </section>
       </div>
+
+      <details class="card teaching-card">
+        <summary><span>算法讲解</span><small>{{ algorithm.name }}</small><ChevronDown :size="18" aria-hidden="true" /></summary>
+        <div class="teaching-content">
+          <p class="algorithm-summary">{{ algorithm.summary }}</p>
+          <ol class="pseudocode">
+            <li v-for="(line, index) in algorithm.pseudocode" :key="line" :class="{ active: step.line === index + 1 }"><span>{{ index + 1 }}</span>{{ line }}</li>
+          </ol>
+        </div>
+      </details>
     </main>
 
     <footer><span>纯前端运行，数据仅在本地处理</span><a href="https://github.com/xxhh0822/sort" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库" title="GitHub 仓库"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" /></svg></a></footer>

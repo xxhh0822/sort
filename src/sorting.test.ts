@@ -19,6 +19,7 @@ describe('sorting algorithms', () => {
     steps.slice(1).forEach((step, index) => {
       expect(step.comparisons).toBeGreaterThanOrEqual(steps[index]!.comparisons)
       expect(step.moves).toBeGreaterThanOrEqual(steps[index]!.moves)
+      expect(step.distributions).toBeGreaterThanOrEqual(steps[index]!.distributions)
     })
   })
 
@@ -43,11 +44,17 @@ describe('sorting algorithms', () => {
     expect(run.steps.at(-1)?.values).toEqual([-2, -2, 0, 3, 3])
     expect(run.steps.at(-1)?.comparisons).toBe(0)
     expect(run.steps.at(-1)?.moves).toBe(5)
+    expect(run.steps.at(-1)?.distributions).toBe(5)
   })
 
   it.each(['radix', 'bucket'] as const)('%s supports duplicate and negative integers', (id) => {
     const run = createSortRun(id, [12, -3, 0, -3, 21, 5])
     expect(run.steps.at(-1)?.values).toEqual([-3, -3, 0, 5, 12, 21])
+  })
+
+  it.each(['merge', 'counting', 'radix', 'bucket'] as const)('%s records an auxiliary teaching structure', (id) => {
+    const run = createSortRun(id, [4, 1, 3, 2])
+    expect(run.steps.some((step) => step.auxiliary?.groups.length)).toBe(true)
   })
 })
 

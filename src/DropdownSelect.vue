@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } fro
 interface DropdownOption {
   value: string
   label: string
+  group?: string
 }
 
 const props = defineProps<{
@@ -109,22 +110,23 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleOutsideC
     </button>
 
     <div v-if="open" :id="listboxId" class="dropdown-menu" role="listbox" :aria-label="label">
-      <button
-        v-for="(option, index) in options"
-        :id="`${listboxId}-${index}`"
-        :key="option.value"
-        class="dropdown-option"
-        :class="{ active: activeIndex === index, selected: modelValue === option.value }"
-        type="button"
-        role="option"
-        :aria-selected="modelValue === option.value"
-        tabindex="-1"
-        @mouseenter="activeIndex = index"
-        @click="select(option.value)"
-      >
-        <span>{{ option.label }}</span>
-        <Check v-if="modelValue === option.value" :size="16" aria-hidden="true" />
-      </button>
+      <template v-for="(option, index) in options" :key="option.value">
+        <p v-if="option.group && option.group !== options[index - 1]?.group" class="dropdown-group" role="presentation">{{ option.group }}</p>
+        <button
+          :id="`${listboxId}-${index}`"
+          class="dropdown-option"
+          :class="{ active: activeIndex === index, selected: modelValue === option.value }"
+          type="button"
+          role="option"
+          :aria-selected="modelValue === option.value"
+          tabindex="-1"
+          @mouseenter="activeIndex = index"
+          @click="select(option.value)"
+        >
+          <span>{{ option.label }}</span>
+          <Check v-if="modelValue === option.value" :size="16" aria-hidden="true" />
+        </button>
+      </template>
     </div>
   </div>
 </template>
@@ -171,6 +173,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleOutsideC
 }
 .dropdown-menu::-webkit-scrollbar { width: 6px; }
 .dropdown-menu::-webkit-scrollbar-thumb { border-radius: 999px; background: #c8ceef; }
+.dropdown-group { margin: 7px 9px 2px; color: #9aa4b7; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.dropdown-group:first-child { margin-top: 3px; }
 .dropdown-option {
   display: flex;
   width: 100%;

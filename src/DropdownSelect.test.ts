@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import DropdownSelect from './DropdownSelect.vue'
 
 const options = [
-  { value: 'first', label: '第一项' },
-  { value: 'second', label: '第二项' },
-  { value: 'third', label: '第三项' },
+  { value: 'first', label: '第一项', group: '第一组' },
+  { value: 'second', label: '第二项', group: '第一组' },
+  { value: 'third', label: '第三项', group: '第二组' },
 ]
 
 describe('DropdownSelect', () => {
@@ -17,6 +17,7 @@ describe('DropdownSelect', () => {
     await wrapper.get('.dropdown-trigger').trigger('click')
     expect(wrapper.get('.dropdown-trigger').attributes('aria-expanded')).toBe('true')
     expect(wrapper.findAll('.dropdown-option')).toHaveLength(3)
+    expect(wrapper.findAll('.dropdown-group').map((group) => group.text())).toEqual(['第一组', '第二组'])
     await wrapper.findAll('.dropdown-option')[1]!.trigger('click')
 
     expect(wrapper.emitted('update:modelValue')).toEqual([['second']])

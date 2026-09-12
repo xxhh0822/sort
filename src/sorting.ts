@@ -2,6 +2,16 @@ export type AlgorithmId = 'bubble' | 'selection' | 'insertion' | 'quick' | 'merg
 export type DataMode = 'random' | 'nearly' | 'reversed'
 export type StepKind = 'initial' | 'compare' | 'swap' | 'write' | 'mark'
 
+export interface AuxiliaryGroup {
+  label: string
+  values: number[]
+}
+
+export interface AuxiliaryState {
+  title: string
+  groups: AuxiliaryGroup[]
+}
+
 export interface SortStep {
   values: number[]
   kind: StepKind
@@ -13,6 +23,8 @@ export interface SortStep {
   message: string
   comparisons: number
   moves: number
+  distributions: number
+  auxiliary?: AuxiliaryState
 }
 
 export interface SortRun { initial: number[]; steps: SortStep[] }
@@ -52,8 +64,11 @@ function recorder(input: number[]) {
   const sorted = new Set<number>()
   let comparisons = 0
   let moves = 0
+  let distributions = 0
+  let auxiliary: AuxiliaryState | undefined
+  const cloneAuxiliary = () => auxiliary ? { title: auxiliary.title, groups: auxiliary.groups.map((group) => ({ label: group.label, values: [...group.values] })) } : undefined
   const push = (kind: StepKind, line: number, message: string, comparing: number[] = [], active: number[] = [], pivot: number | null = null) => {
-    steps.push({ values: [...values], kind, comparing, active, sorted: [...sorted].sort((a, b) => a - b), pivot, line, message, comparisons, moves })
+    steps.push({ values: [...values], kind, comparing, active, sorted: [...sorted].sort((a, b) => a - b), pivot, line, message, comparisons, moves, distributions, auxiliary: cloneAuxiliary() })
   }
   push('initial', 0, '准备开始排序')
   return {
@@ -64,6 +79,8 @@ function recorder(input: number[]) {
     write(index: number, value: number, line: number, message: string) { values[index] = value; moves += 1; push('write', line, message, [], [index]) },
     mark(indices: number[], line: number, message: string) { indices.forEach((index) => sorted.add(index)); push('mark', line, message) },
     note(line: number, message: string, pivot: number | null = null, active: number[] = []) { push('mark', line, message, [], active, pivot) },
+    setAuxiliary(value: AuxiliaryState, line: number, message: string, active: number[] = []) { auxiliary = value; push('mark', line, message, [], active) },
+    distribute(line: number, message: string, active: number[], value: AuxiliaryState) { distributions += 1; auxiliary = value; push('mark', line, message, [], active) },
   }
 }
 
@@ -149,7 +166,7 @@ function mergeSort(input: number[]): SortStep[] {
     let leftIndex = 0
     let rightIndex = 0
     let target = low
-    state.note(1, `合并位置 ${low + 1}–${high + 1} 的两个有序区间`, null, Array.from({ length: high - low + 1 }, (_, index) => low + index))
+    state.setAuxiliary({ title: '待合并区间', groups: [{ label: '左侧', values: left }, { label: '右侧', values: right }] }, 1, `合并位置 ${low + 1}–${high + 1} 的两个有序区间`, Array.from({ length: high - low + 1 }, (_, index) => low + index))
     while (leftIndex < left.length && rightIndex < right.length) {
       state.compare([low + leftIndex, middle + 1 + rightIndex], 3, `比较 ${left[leftIndex]} 与 ${right[rightIndex]}`)
       if (left[leftIndex]! <= right[rightIndex]!) {
@@ -221,9 +238,10 @@ function countingSort(input: number[]): SortStep[] {
   const minimum = Math.min(...input)
   const maximum = Math.max(...input)
   const counts = Array.from({ length: maximum - minimum + 1 }, () => 0)
+  const countView = () => ({ title: '计数数组', groups: counts.map((count, index) => ({ label: String(index + minimum), values: [count] })).filter((group) => group.values[0]! > 0) })
   input.forEach((value, index) => {
     counts[value - minimum]! += 1
-    state.note(1, `统计 ${value}，当前已出现 ${counts[value - minimum]} 次`, null, [index])
+    state.distribute(1, `统计 ${value}，当前已出现 ${counts[value - minimum]} 次`, [index], countView())
   })
   state.note(2, `计数范围为 ${minimum}–${maximum}，共 ${counts.length} 个位置`)
   for (let index = 1; index < counts.length; index += 1) counts[index]! += counts[index - 1]!
@@ -275,7 +293,7 @@ function radixSort(input: number[]): SortStep[] {
     state.values.forEach((value, index) => {
       const digit = Math.floor((value + offset) / exponent) % 10
       buckets[digit]!.push(value)
-      state.note(2, `按${placeName}数字 ${digit}，把 ${value} 放入 ${digit} 号桶`, null, [index])
+      state.distribute(2, `按${placeName}数字 ${digit}，把 ${value} 放入 ${digit} 号桶`, [index], { title: `${placeName}分桶`, groups: buckets.map((values, bucket) => ({ label: String(bucket), values })) })
     })
     const output = buckets.flat()
     state.note(3, `按 0–9 的顺序收集${placeName}分桶结果`)
@@ -294,11 +312,12 @@ function bucketSort(input: number[]): SortStep[] {
   const bucketCount = Math.max(1, Math.ceil(Math.sqrt(input.length)))
   const bucketWidth = Math.max(1, Math.ceil((maximum - minimum + 1) / bucketCount))
   const buckets = Array.from({ length: bucketCount }, () => [] as number[])
+  const bucketView = () => ({ title: '数据分桶', groups: buckets.map((values, index) => ({ label: `桶 ${index + 1}`, values })) })
   state.note(1, `创建 ${bucketCount} 个桶，每个桶覆盖约 ${bucketWidth} 个整数`)
   input.forEach((value, index) => {
     const bucketIndex = Math.min(bucketCount - 1, Math.floor((value - minimum) / bucketWidth))
     buckets[bucketIndex]!.push(value)
-    state.note(2, `把 ${value} 分配到 ${bucketIndex + 1} 号桶`, null, [index])
+    state.distribute(2, `把 ${value} 分配到 ${bucketIndex + 1} 号桶`, [index], bucketView())
   })
   buckets.forEach((bucket, bucketIndex) => {
     for (let index = 1; index < bucket.length; index += 1) {
@@ -312,7 +331,7 @@ function bucketSort(input: number[]): SortStep[] {
       }
       bucket[cursor + 1] = value
     }
-    state.note(3, `${bucketIndex + 1} 号桶排序完成：${bucket.join('、') || '空桶'}`)
+    state.setAuxiliary(bucketView(), 3, `${bucketIndex + 1} 号桶排序完成：${bucket.join('、') || '空桶'}`)
   })
   const output = buckets.flat()
   state.note(4, '按桶的范围从小到大依次收集元素')

@@ -11,8 +11,30 @@ describe('App', () => {
     await wrapper.get('button[aria-label="排序算法"]').trigger('click')
     const options = wrapper.findAll('.algorithm-select .dropdown-option')
     expect(options).toHaveLength(10)
+    expect(wrapper.findAll('.algorithm-select .dropdown-group').map((group) => group.text())).toEqual(['基础排序', '高效比较排序', '非比较排序'])
     await options[0]!.trigger('click')
     expect(wrapper.text()).toContain('重复比较相邻元素')
+  })
+
+  it('keeps the visualizer before the collapsed teaching details and removes sequence badges', () => {
+    const wrapper = mount(App)
+    expect(wrapper.get('.teaching-card').attributes('open')).toBeUndefined()
+    expect(wrapper.get('.visualizer-card').element.compareDocumentPosition(wrapper.get('.teaching-card').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(wrapper.findAll('.section-title > span')).toHaveLength(0)
+    expect(wrapper.get('.current-step-banner').text()).toContain('准备开始排序')
+  })
+
+  it('shows auxiliary structures and distribution metrics for counting sort', async () => {
+    const wrapper = mount(App)
+    await wrapper.get('button[aria-label="排序算法"]').trigger('click')
+    const countingOption = wrapper.findAll('.algorithm-select .dropdown-option').find((option) => option.text().includes('计数排序'))
+    await countingOption!.trigger('click')
+    await wrapper.findAll('.playback button')[3]!.trigger('click')
+
+    expect(wrapper.get('.auxiliary-panel').text()).toContain('计数数组')
+    expect(wrapper.get('.stats').text()).toContain('分配')
+    expect(wrapper.get('.stats').text()).toContain('写回')
+    expect(wrapper.get('.legend').text()).toContain('已完成')
   })
 
   it('steps forward and backward deterministically', async () => {
